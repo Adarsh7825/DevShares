@@ -15,7 +15,7 @@ export function SocketProvider({ children }) {
     const [socket, setSocket] = useState(null);
 
     useEffect(() => {
-        const newSocket = io('http://localhost:3000');
+        const newSocket = io('https://screen-share-k727.onrender.com');
         setSocket(newSocket);
 
         return () => newSocket.close();

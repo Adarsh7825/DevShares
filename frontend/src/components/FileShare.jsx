@@ -17,7 +17,7 @@ function FileShare() {
             const formData = new FormData();
             acceptedFiles.forEach(file => formData.append('files', file));
 
-            const response = await fetch('http://localhost:3000/upload', {
+            const response = await fetch('https://screen-share-k727.onrender.com/upload', {
                 method: 'POST',
                 body: formData,
             });
@@ -57,7 +57,7 @@ function FileShare() {
 
         try {
             // Fetch the metadata for the files (not the file content itself)
-            const response = await fetch(`http://localhost:3000/download/${downloadCode}`);
+            const response = await fetch(`https://screen-share-k727.onrender.com/download/${downloadCode}`);
             const data = await response.json();
 
             if (!data.success) {
@@ -66,7 +66,7 @@ function FileShare() {
 
             // Loop through each file and trigger the download
             for (let i = 0; i < data.files.length; i++) {
-                const fileResponse = await fetch(`http://localhost:3000/download/${downloadCode}`);
+                const fileResponse = await fetch(`https://screen-share-k727.onrender.com/download/${downloadCode}`);
 
                 // Ensure the response is a Blob (binary data)
                 const blob = await fileResponse.blob();
