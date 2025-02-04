@@ -17,7 +17,7 @@ function FileShare() {
             const formData = new FormData();
             acceptedFiles.forEach(file => formData.append('files', file));
 
-            const response = await fetch('https://screen-share-k727.onrender.com/upload', {
+            const response = await fetch('http://localhost:3000/upload', {
                 method: 'POST',
                 body: formData,
             });
@@ -56,32 +56,32 @@ function FileShare() {
         }
 
         try {
-            // Fetch the metadata for the files (not the file content itself)
-            const response = await fetch(`https://screen-share-k727.onrender.com/download/${downloadCode}`);
-            const data = await response.json();
+            const response = await fetch(`http://localhost:3000/download/${downloadCode}`);
 
-            if (!data.success) {
-                throw new Error(data.message || 'Failed to retrieve files');
+            if (!response.ok) {
+                throw new Error('Download failed');
             }
 
-            // Loop through each file and trigger the download
-            for (let i = 0; i < data.files.length; i++) {
-                const fileResponse = await fetch(`https://screen-share-k727.onrender.com/download/${downloadCode}`);
+            // Download zip file
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
 
-                // Ensure the response is a Blob (binary data)
-                const blob = await fileResponse.blob();
+            // Create temporary link to trigger download
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'shared-files.zip';
+            document.body.appendChild(link);
+            link.click();
 
-                // Create a link element to trigger the download
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = data.files[i].name;  // Use the file name from the server metadata
-                link.click();  // Trigger the download
-            }
+            // Cleanup
+            link.remove();
+            window.URL.revokeObjectURL(url);
 
-            // Clear dialog and input
+            // Close dialog
             setShowNearbyDialog(false);
             setDownloadCode('');
             setError('');
+
         } catch (error) {
             console.error(error);
             setError('Failed to download files');

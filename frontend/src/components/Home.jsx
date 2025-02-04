@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 function Home() {
     const [roomId, setRoomId] = useState('');
+    const [roomIdforcodeshare, setRoomIdforcodeshare] = useState('');
     const [error, setError] = useState('');
     const navigate = useNavigate();
 
@@ -20,6 +21,12 @@ function Home() {
         setRoomId(value);
         setError('');
     };
+
+    const handleRoomIdforcodeshare = (e) => {
+        const value = e.target.value.replace(/\D/g, '').slice(0, 4); // Only allow digits, max 4
+        setRoomIdforcodeshare(value);
+        setError('');
+    }
 
     const validateAndJoin = (e, asViewer = false) => {
         e.preventDefault();
@@ -146,14 +153,14 @@ function Home() {
 
                             <form onSubmit={(e) => {
                                 e.preventDefault();
-                                if (roomId.length === 4) {
-                                    navigate(`/code/${roomId}`);
+                                if (roomIdforcodeshare.length === 4) {
+                                    navigate(`/code/${roomIdforcodeshare}`);
                                 }
                             }} className="space-y-3">
                                 <input
                                     type="text"
-                                    value={roomId}
-                                    onChange={handleRoomIdChange}
+                                    value={roomIdforcodeshare}
+                                    onChange={handleRoomIdforcodeshare}
                                     placeholder="Enter 4-digit Room ID"
                                     className="w-full bg-white/5 text-white placeholder-white/40 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all duration-200 text-center text-2xl tracking-wider"
                                     maxLength={4}
