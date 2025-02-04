@@ -130,35 +130,43 @@ app.get('/download/:code', async (req, res) => {
     }
 
     try {
-        // Get the current file to download
-        const currentFile = fileInfo.files[0];
+        // Fetch all files from Cloudinary
+        const filePromises = fileInfo.files.map(async (file) => {
+            const response = await fetch(file.url);
+            const buffer = await response.buffer();
+            return {
+                name: file.name,
+                buffer: buffer
+            };
+        });
 
-        // Fetch the file from Cloudinary
-        const fileResponse = await fetch(currentFile.url);
+        const files = await Promise.all(filePromises);
 
-        // Set headers for file download
-        res.setHeader('Content-Disposition', `attachment; filename="${currentFile.name}"`);
-        res.setHeader('Content-Type', 'application/octet-stream');
+        // Create a zip archive
+        const archive = archiver('zip', {
+            zlib: { level: 9 }
+        });
 
-        // Stream the file content
-        fileResponse.body.pipe(res);
+        // Pipe archive to response
+        archive.pipe(res);
 
-        // Remove the downloaded file from the list
-        fileInfo.files.shift();
+        // Add each file to the archive
+        files.forEach(file => {
+            archive.append(file.buffer, { name: file.name });
+        });
 
-        // If no more files, clean up the store
-        if (fileInfo.files.length === 0) {
-            fileStore.delete(code);
-        } else {
-            // Update the store with remaining files
-            fileStore.set(code, fileInfo);
-        }
+        // Finalize the archive
+        await archive.finalize();
+
+        // Clean up file store
+        fileStore.delete(code);
 
     } catch (error) {
         console.error('Download error:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to download file'
+            message: 'Failed to download files',
+            error: error.message
         });
     }
 });
