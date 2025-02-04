@@ -22,6 +22,7 @@ const io = new Server(httpServer, {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+import { keepAlive } from './keepAlive.js';
 
 // Configure Cloudinary
 cloudinary.v2.config({
@@ -166,6 +167,9 @@ app.get('/download/:code', async (req, res) => {
 app.use(cors());
 app.use(express.json());
 
+const httpserver = createServer(app);
+
+
 // Store active rooms and their states - will persist even when empty
 const rooms = new Map();
 
@@ -179,6 +183,11 @@ const getRoomUsers = (roomId) => {
     const room = rooms.get(roomId);
     return room ? Array.from(room.users.values()) : [];
 };
+
+// keep alive the server by sending a message every 50 seconds with 
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
@@ -361,4 +370,8 @@ setInterval(() => {
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+
+
+    // Start the keep-alive mechanism
+    keepAlive();
 });
