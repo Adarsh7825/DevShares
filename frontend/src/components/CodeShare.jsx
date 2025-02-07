@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSocket } from '../context/SocketContext';
 import MonacoEditor from '@monaco-editor/react';
+import { motion } from 'framer-motion';
 
 function CodeShare() {
     const { roomId } = useParams();
@@ -129,15 +130,20 @@ function CodeShare() {
 
     return (
         <div className="min-h-screen h-screen bg-black flex flex-col">
-            {/* Navbar - fixed height */}
-            <nav className="h-14 bg-black/50 backdrop-blur-sm border-b border-white/10">
+            {/* Navbar */}
+            <motion.nav
+                initial={{ y: -100 }}
+                animate={{ y: 0 }}
+                className="h-14 bg-black/50 backdrop-blur-sm border-b border-white/10"
+            >
                 <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <span className="text-white font-medium">CodeShare</span>
+                        <span className="text-white font-medium">DevShares Code</span>
                         <span className="text-white/40 text-sm">Room: {roomId}</span>
                     </div>
                     <div className="flex items-center gap-4">
-                        <select
+                        <motion.select
+                            whileHover={{ scale: 1.05 }}
                             value={language}
                             onChange={handleLanguageChange}
                             className="bg-white/5 text-white border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-white/20"
@@ -147,8 +153,10 @@ function CodeShare() {
                                     {lang.charAt(0).toUpperCase() + lang.slice(1)}
                                 </option>
                             ))}
-                        </select>
-                        <button
+                        </motion.select>
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={copyRoomLink}
                             className="bg-white/5 hover:bg-white/10 text-white/60 hover:text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2 transition-all duration-200"
                         >
@@ -157,13 +165,17 @@ function CodeShare() {
                                 <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
                             </svg>
                             Share
-                        </button>
+                        </motion.button>
                     </div>
                 </div>
-            </nav>
+            </motion.nav>
 
-            {/* Editor - fills remaining space */}
-            <main className="flex-1 relative">
+            {/* Editor */}
+            <motion.main
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex-1 relative"
+            >
                 <div className="absolute inset-0">
                     <MonacoEditor
                         height="100%"
@@ -193,32 +205,42 @@ function CodeShare() {
                         }}
                     />
                 </div>
-            </main>
+            </motion.main>
 
-            {/* Footer - fixed height */}
-            <footer className="h-12 bg-black/50 backdrop-blur-sm border-t border-white/10">
+            {/* Footer */}
+            <motion.footer
+                initial={{ y: 100 }}
+                animate={{ y: 0 }}
+                className="h-12 bg-black/50 backdrop-blur-sm border-t border-white/10"
+            >
                 <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="flex -space-x-2">
                             {connectedUsers.map((user, index) => (
-                                <div
+                                <motion.div
                                     key={user.id}
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
                                     className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white/60 text-xs border border-white/10"
                                     title={user.id === socket.id ? 'You' : `User ${index + 1}`}
                                 >
                                     {user.id === socket.id ? 'Y' : index + 1}
-                                </div>
+                                </motion.div>
                             ))}
                         </div>
                         <span className="text-white/40 text-sm">
                             {connectedUsers.length} connected
                         </span>
                     </div>
-                    <span className="text-white/40 text-sm">
+                    <motion.span
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-white/40 text-sm"
+                    >
                         {isConnected ? 'Connected' : 'Connecting...'}
-                    </span>
+                    </motion.span>
                 </div>
-            </footer>
+            </motion.footer>
         </div>
     );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSocket } from '../context/SocketContext';
+import { motion } from 'framer-motion';
 
 function ViewerRoom() {
     const { roomId } = useParams();
@@ -99,26 +100,55 @@ function ViewerRoom() {
     }, [socket, roomId]);
 
     return (
-        <div className="fixed inset-0 bg-black">
-            <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                className="w-full h-full object-contain"
-            />
-            {!videoRef.current?.srcObject && (
-                <div className="">
-                    <div className="text-center">
-                        <div className="animate-pulse text-white/60 text-xl mb-4">
-                            Waiting for screen share...
-                        </div>
-                        <div className="text-white/40 text-sm">
-                            The presenter will start sharing soon
-                        </div>
-                    </div>
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-black"
+        >
+            <motion.nav
+                initial={{ y: -100 }}
+                animate={{ y: 0 }}
+                className="fixed top-0 left-0 right-0 bg-black/50 backdrop-blur-sm border-b border-white/10 z-50"
+            >
+                <div className="max-w-7xl mx-auto px-4 h-14 flex items-center">
+                    <span className="text-white font-medium">DevShares Viewer</span>
+                    <span className="text-white/40 text-sm ml-4">Room: {roomId}</span>
                 </div>
-            )}
-        </div>
+            </motion.nav>
+
+            <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                className="h-full pt-14"
+            >
+                <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-contain"
+                />
+                {!videoRef.current?.srcObject && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="absolute inset-0 flex items-center justify-center"
+                    >
+                        <div className="text-center">
+                            <motion.div
+                                animate={{ opacity: [0.4, 1, 0.4] }}
+                                transition={{ repeat: Infinity, duration: 2 }}
+                                className="text-white/60 text-xl mb-4"
+                            >
+                                Waiting for screen share...
+                            </motion.div>
+                            <div className="text-white/40 text-sm">
+                                The presenter will start sharing soon
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </motion.div>
+        </motion.div>
     );
 }
 
