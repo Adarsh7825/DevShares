@@ -17,7 +17,7 @@ function FileShare() {
             const formData = new FormData();
             acceptedFiles.forEach(file => formData.append('files', file));
 
-            const response = await fetch('http://localhost:3000/upload', {
+            const response = await fetch('https://screen-share-k727.onrender.com/upload', {
                 method: 'POST',
                 body: formData,
             });
@@ -56,7 +56,7 @@ function FileShare() {
         }
 
         try {
-            const response = await fetch(`http://localhost:3000/download/${downloadCode}`);
+            const response = await fetch(`https://screen-share-k727.onrender.com/download/${downloadCode}`);
 
             if (!response.ok) {
                 throw new Error('Download failed');
