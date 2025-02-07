@@ -9,8 +9,8 @@ import './App.css';
 
 function App() {
   return (
-    <SocketProvider>
-      <Router>
+    <Router>
+      <SocketProvider>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/room/:roomId" element={<Room />} />
@@ -18,8 +18,8 @@ function App() {
           <Route path="/code/:roomId" element={<CodeShare />} />
           <Route path="/fileshare" element={<FileShare />} />
         </Routes>
-      </Router>
-    </SocketProvider>
+      </SocketProvider>
+    </Router>
   );
 }
 
