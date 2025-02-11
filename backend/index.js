@@ -10,6 +10,12 @@ import fetch from 'node-fetch';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import archiver from 'archiver';
+import aiChatRoutes from './routes/aiChat.js';
+import dotenv from 'dotenv';
+import { router as musicRoomRouter, musicRooms } from './routes/musicRoom.js';
+
+// Load environment variables
+dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
@@ -31,7 +37,13 @@ cloudinary.v2.config({
     api_secret: 'Bjv_I2xy7Xe4dOJBymp9xXsoutc'
 });
 
-app.use(cors());
+// Configure CORS
+app.use(cors({
+    origin: ['http://localhost:5173', 'http://localhost:3000'],
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type']
+}));
+
 app.use(express.json());
 
 // Configure multer storage
@@ -358,6 +370,67 @@ io.on('connection', (socket) => {
             }
         });
     });
+
+    // Music room events
+    socket.on('join-music-room', (roomId) => {
+        socket.join(`music:${roomId}`);
+        const room = musicRooms.get(roomId);
+        if (room) {
+            room.participants.push(socket.id);
+            io.to(`music:${roomId}`).emit('music-room-update', room);
+        }
+    });
+
+    socket.on('leave-music-room', (roomId) => {
+        socket.leave(`music:${roomId}`);
+        const room = musicRooms.get(roomId);
+        if (room) {
+            room.participants = room.participants.filter(id => id !== socket.id);
+            io.to(`music:${roomId}`).emit('music-room-update', room);
+        }
+    });
+
+    socket.on('music-play', ({ roomId, trackUri, position }) => {
+        const room = musicRooms.get(roomId);
+        if (room) {
+            room.currentTrack = trackUri;
+            room.isPlaying = true;
+            room.currentPosition = position;
+            io.to(`music:${roomId}`).emit('music-state-update', {
+                isPlaying: true,
+                currentTrack: trackUri,
+                position
+            });
+        }
+    });
+
+    socket.on('music-pause', ({ roomId, position }) => {
+        const room = musicRooms.get(roomId);
+        if (room) {
+            room.isPlaying = false;
+            room.currentPosition = position;
+            io.to(`music:${roomId}`).emit('music-state-update', {
+                isPlaying: false,
+                position
+            });
+        }
+    });
+
+    socket.on('music-seek', ({ roomId, position }) => {
+        const room = musicRooms.get(roomId);
+        if (room) {
+            room.currentPosition = position;
+            io.to(`music:${roomId}`).emit('music-seek', { position });
+        }
+    });
+
+    socket.on('update-playlist', ({ roomId, playlist }) => {
+        const room = musicRooms.get(roomId);
+        if (room) {
+            room.playlist = playlist;
+            io.to(`music:${roomId}`).emit('playlist-updated', playlist);
+        }
+    });
 });
 
 // Optional: Cleanup very old rooms (e.g., older than 30 days)
@@ -374,6 +447,10 @@ setInterval(() => {
         }
     });
 }, CLEANUP_INTERVAL);
+
+// Add AI Chat routes
+app.use('/api', aiChatRoutes);
+app.use('/api/music', musicRoomRouter);
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
