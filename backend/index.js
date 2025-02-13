@@ -456,11 +456,8 @@ setInterval(() => {
 app.use('/api', aiChatRoutes);
 app.use('/api/music', musicRoomRouter);
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8181;
 httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-
-
-    // Start the keep-alive mechanism
     keepAlive();
 });
