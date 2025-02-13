@@ -13,6 +13,7 @@ import archiver from 'archiver';
 import aiChatRoutes from './routes/aiChat.js';
 import dotenv from 'dotenv';
 import { router as musicRoomRouter, musicRooms } from './routes/musicRoom.js';
+import { setupMusicHandlers } from './socket/musicHandlers.js';
 
 // Load environment variables
 dotenv.config();
@@ -431,6 +432,9 @@ io.on('connection', (socket) => {
             io.to(`music:${roomId}`).emit('playlist-updated', playlist);
         }
     });
+
+    // Setup music room handlers
+    setupMusicHandlers(io, socket);
 });
 
 // Optional: Cleanup very old rooms (e.g., older than 30 days)

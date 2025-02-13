@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
+import { SERVER_URL } from '../config/config';
 
 const SocketContext = createContext(null);
 
@@ -16,7 +17,7 @@ export function SocketProvider({ children }) {
     const [isConnecting, setIsConnecting] = useState(true);
 
     useEffect(() => {
-        const newSocket = io('https://screen-share-k727.onrender.com', {
+        const newSocket = io(SERVER_URL, {
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,

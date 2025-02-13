@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion } from 'framer-motion';
+import { SERVER_URL } from '../config/config';
 
 function FileShare() {
     const [files, setFiles] = useState(null);
@@ -18,7 +19,7 @@ function FileShare() {
             const formData = new FormData();
             acceptedFiles.forEach(file => formData.append('files', file));
 
-            const response = await fetch('https://screen-share-k727.onrender.com/upload', {
+            const response = await fetch(`${SERVER_URL}/upload`, {
                 method: 'POST',
                 body: formData,
             });
@@ -57,7 +58,7 @@ function FileShare() {
         }
 
         try {
-            const response = await fetch(`https://screen-share-k727.onrender.com/download/${downloadCode}`);
+            const response = await fetch(`${SERVER_URL}/download/${downloadCode}`);
 
             if (!response.ok) {
                 throw new Error('Download failed');

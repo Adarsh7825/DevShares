@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useMusic } from '../context/MusicContext';
 import { useSocket } from '../context/SocketContext';
 import { FaPlay, FaPause, FaForward, FaBackward, FaVolumeUp, FaVolumeMute } from 'react-icons/fa';
 
 const MusicRoom = ({ roomId }) => {
-    const { socket } = useSocket();
+    const socket = useSocket();
     const {
         currentTrack,
         isPlaying,
@@ -19,45 +19,57 @@ const MusicRoom = ({ roomId }) => {
         getDuration
     } = useMusic();
 
-    const [room, setRoom] = useState(null);
+    const [participants, setParticipants] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [error, setError] = useState(null);
     const [progress, setProgress] = useState(0);
     const progressInterval = useRef(null);
+    const ignoreSeek = useRef(false);
 
+    // Handle socket events
     useEffect(() => {
-        if (socket && roomId) {
-            socket.emit('join-music-room', roomId);
+        if (!socket || !roomId) return;
 
-            socket.on('music-room-update', (updatedRoom) => {
-                setRoom(updatedRoom);
-            });
+        socket.emit('join-music-room', roomId);
 
-            socket.on('music-state-update', async ({ isPlaying, track, position }) => {
-                try {
-                    if (isPlaying) {
-                        await playTrack(track);
-                        seekToPosition(position);
-                    } else {
-                        pauseTrack();
-                    }
-                } catch (error) {
-                    console.error('Playback error:', error);
-                }
-            });
-
-            socket.on('music-seek', ({ position }) => {
+        socket.on('music-state-sync', async ({ currentTrack, isPlaying, position }) => {
+            if (currentTrack) {
+                await playTrack(currentTrack);
                 seekToPosition(position);
-            });
+                if (!isPlaying) {
+                    pauseTrack();
+                }
+            }
+        });
 
-            return () => {
-                socket.emit('leave-music-room', roomId);
-                socket.off('music-room-update');
-                socket.off('music-state-update');
-                socket.off('music-seek');
-            };
-        }
+        socket.on('music-state-update', async ({ isPlaying, track, position }) => {
+            if (track) {
+                await playTrack(track);
+            }
+            seekToPosition(position);
+            if (!isPlaying) {
+                pauseTrack();
+            }
+        });
+
+        socket.on('music-seek', ({ position }) => {
+            if (!ignoreSeek.current) {
+                seekToPosition(position);
+            }
+            ignoreSeek.current = false;
+        });
+
+        socket.on('participants-update', (updatedParticipants) => {
+            setParticipants(updatedParticipants);
+        });
+
+        return () => {
+            socket.off('music-state-sync');
+            socket.off('music-state-update');
+            socket.off('music-seek');
+            socket.off('participants-update');
+        };
     }, [socket, roomId]);
 
     // Update progress bar
@@ -84,21 +96,19 @@ const MusicRoom = ({ roomId }) => {
     }, [isPlaying]);
 
     const handleSearch = async () => {
-        if (!searchQuery) return;
-        setError(null);
-
+        if (!searchQuery.trim()) return;
+        
         try {
             const results = await searchTracks(searchQuery);
             setSearchResults(results);
+            setError(null);
         } catch (error) {
-            console.error('Search error:', error);
-            setError('Failed to search tracks. Please try again.');
+            setError('Failed to search tracks');
+            console.error(error);
         }
     };
 
     const handlePlay = async (track) => {
-        setError(null);
-
         try {
             await playTrack(track);
             socket.emit('music-play', {
@@ -106,34 +116,45 @@ const MusicRoom = ({ roomId }) => {
                 track,
                 position: 0
             });
+            setError(null);
         } catch (error) {
-            console.error('Play error:', error);
-            setError('Failed to play track. Please try again.');
+            setError('Failed to play track');
+            console.error(error);
         }
     };
 
-    const handlePause = () => {
+    const handlePlayPause = () => {
         try {
-            pauseTrack();
-            socket.emit('music-pause', {
-                roomId,
-                position: getCurrentTime()
-            });
+            if (isPlaying) {
+                pauseTrack();
+                socket.emit('music-pause', {
+                    roomId,
+                    position: getCurrentTime()
+                });
+            } else {
+                resumeTrack();
+                socket.emit('music-play', {
+                    roomId,
+                    track: currentTrack,
+                    position: getCurrentTime()
+                });
+            }
         } catch (error) {
-            console.error('Pause error:', error);
-            setError('Failed to pause track. Please try again.');
+            setError('Failed to control playback');
+            console.error(error);
         }
     };
 
-    const handleSeek = (e) => {
-        const clickPosition = e.nativeEvent.offsetX / e.target.offsetWidth;
-        const newPosition = clickPosition * getDuration();
-        seekToPosition(newPosition);
-        socket.emit('music-seek', {
-            roomId,
-            position: newPosition
-        });
-    };
+    const handleSeek = useCallback((e) => {
+        const rect = e.target.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const percentage = x / rect.width;
+        const position = percentage * getDuration();
+        
+        ignoreSeek.current = true;
+        seekToPosition(position);
+        socket.emit('music-seek', { roomId, position });
+    }, [roomId, socket]);
 
     const handleVolumeChange = (e) => {
         const newVolume = parseInt(e.target.value);
@@ -227,7 +248,7 @@ const MusicRoom = ({ roomId }) => {
                                 <FaBackward />
                             </button>
                             <button
-                                onClick={isPlaying ? handlePause : resumeTrack}
+                                onClick={handlePlayPause}
                                 className="text-white hover:text-green-500"
                             >
                                 {isPlaying ? <FaPause /> : <FaPlay />}
@@ -272,16 +293,16 @@ const MusicRoom = ({ roomId }) => {
                 </div>
             )}
 
-            {/* Room Participants */}
-            <div className="mt-6">
-                <h3 className="text-white font-medium mb-2">Participants</h3>
+            {/* Add Participants List */}
+            <div className="mt-4">
+                <h3 className="text-white text-lg mb-2">Participants ({participants.length})</h3>
                 <div className="flex flex-wrap gap-2">
-                    {room?.participants.map((participantId) => (
+                    {participants.map((participantId) => (
                         <div
                             key={participantId}
                             className="px-3 py-1 bg-gray-700 rounded-full text-white text-sm"
                         >
-                            {participantId.slice(0, 6)}
+                            User {participantId.slice(0, 6)}
                         </div>
                     ))}
                 </div>
