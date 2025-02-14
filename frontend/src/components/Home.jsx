@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import HeroBackground from './HeroBackground';
+import { FaMusic, FaCode, FaDesktop, FaLock } from 'react-icons/fa';
 
 function Home() {
     const [roomId, setRoomId] = useState('');
     const [roomIdforcodeshare, setRoomIdforcodeshare] = useState('');
+    const [musicRoomId, setMusicRoomId] = useState('');
     const [error, setError] = useState('');
     const navigate = useNavigate();
 
@@ -47,33 +49,46 @@ function Home() {
         sharingSection.scrollIntoView({ behavior: 'smooth' });
     };
 
+    const handleMusicRoomIdChange = (e) => {
+        const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+        setMusicRoomId(value);
+        setError('');
+    };
+
+    const createMusicRoom = () => {
+        const newRoomId = generateRoomId();
+        navigate(`/music/${newRoomId}`);
+    };
+
+    const joinMusicRoom = (e) => {
+        e.preventDefault();
+        if (musicRoomId.length !== 4) {
+            setError('Room ID must be 4 digits');
+            return;
+        }
+        navigate(`/music/${musicRoomId}`);
+    };
+
     const features = [
         {
             title: "Real-time Screen Sharing",
             description: "Share your screen instantly with multiple viewers in high quality",
-            icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-            )
+            icon: <FaDesktop className="h-6 w-6" />
         },
         {
             title: "Collaborative Code Editor",
             description: "Write and edit code together in real-time with syntax highlighting",
-            icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                </svg>
-            )
+            icon: <FaCode className="h-6 w-6" />
+        },
+        {
+            title: "Music Room",
+            description: "Listen to music together in perfect sync with friends",
+            icon: <FaMusic className="h-6 w-6" />
         },
         {
             title: "Secure File Sharing",
             description: "Share files securely with end-to-end encryption",
-            icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-            )
+            icon: <FaLock className="h-6 w-6" />
         }
     ];
 
@@ -274,7 +289,7 @@ function Home() {
                             </div>
                         </motion.div>
 
-                        {/* File Share Section */}
+                        {/* Music Room Section */}
                         <motion.div
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
@@ -283,20 +298,51 @@ function Home() {
                         >
                             <div className="space-y-6">
                                 <div className="text-center">
-                                    <h2 className="text-2xl font-semibold text-white mb-2">File Share</h2>
+                                    <h2 className="text-2xl font-semibold text-white mb-2">Music Room</h2>
                                     <p className="text-white/40 text-sm">
-                                        Share files securely with others
+                                        Listen to music together in sync
                                     </p>
                                 </div>
 
                                 <button
-                                    onClick={() => {
-                                        navigate(`/fileshare`);
-                                    }}
+                                    onClick={createMusicRoom}
                                     className="w-full bg-white/10 hover:bg-white/15 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
                                 >
-                                    File Share
+                                    <FaMusic className="h-5 w-5" />
+                                    Create Music Room
                                 </button>
+
+                                <div className="relative">
+                                    <div className="absolute inset-0 flex items-center">
+                                        <div className="w-full border-t border-white/10"></div>
+                                    </div>
+                                    <div className="relative flex justify-center">
+                                        <span className="bg-black px-4 text-sm text-white/40">or join existing</span>
+                                    </div>
+                                </div>
+
+                                <form onSubmit={joinMusicRoom} className="space-y-3">
+                                    <div>
+                                        <input
+                                            type="text"
+                                            value={musicRoomId}
+                                            onChange={handleMusicRoomIdChange}
+                                            placeholder="Enter 4-digit Room ID"
+                                            className="w-full bg-white/5 text-white placeholder-white/40 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all duration-200 text-center text-2xl tracking-wider"
+                                            maxLength={4}
+                                        />
+                                        {error && (
+                                            <p className="mt-2 text-red-400 text-sm text-center">{error}</p>
+                                        )}
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        className="w-full bg-white/10 hover:bg-white/15 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200"
+                                    >
+                                        Join Music Room
+                                    </button>
+                                </form>
                             </div>
                         </motion.div>
                     </div>

@@ -212,31 +212,38 @@ const MusicRoom = () => {
 
     const onPlayerStateChange = (event) => {
         console.log('Player state changed:', event.data);
-        if (event.data === window.YT.PlayerState.PLAYING) {
-            setIsPlaying(true);
-            setDuration(playerRef.current.getDuration());
+        try {
+            if (event.data === window.YT.PlayerState.PLAYING) {
+                setIsPlaying(true);
+                if (isPlayerReady.current) {
+                    setDuration(playerRef.current.getDuration());
 
-            // Only emit state update if we have a roomId
-            if (currentTrack && roomId) {
-                socket.emit('music-state-update', {
-                    roomId,
-                    track: currentTrack,
-                    isPlaying: true,
-                    position: playerRef.current.getCurrentTime() || 0
-                });
-            }
-        } else if (event.data === window.YT.PlayerState.PAUSED) {
-            setIsPlaying(false);
+                    // Only emit state update if we have a roomId
+                    if (currentTrack && roomId) {
+                        socket.emit('music-state-update', {
+                            roomId,
+                            track: currentTrack,
+                            isPlaying: true,
+                            position: playerRef.current.getCurrentTime() || 0
+                        });
+                    }
+                }
+            } else if (event.data === window.YT.PlayerState.PAUSED) {
+                setIsPlaying(false);
 
-            // Only emit state update if we have a roomId
-            if (currentTrack && roomId) {
-                socket.emit('music-state-update', {
-                    roomId,
-                    track: currentTrack,
-                    isPlaying: false,
-                    position: playerRef.current.getCurrentTime() || 0
-                });
+                // Only emit state update if we have a roomId
+                if (currentTrack && roomId && isPlayerReady.current) {
+                    socket.emit('music-state-update', {
+                        roomId,
+                        track: currentTrack,
+                        isPlaying: false,
+                        position: playerRef.current.getCurrentTime() || 0
+                    });
+                }
             }
+        } catch (error) {
+            console.error('Error in onPlayerStateChange:', error);
+            setError('Playback error occurred. Please try refreshing the page.');
         }
     };
 
@@ -245,43 +252,27 @@ const MusicRoom = () => {
         console.error('YouTube player error:', event.data);
     };
 
+    const isPlayerFunctional = () => {
+        return playerRef.current &&
+            isPlayerReady.current &&
+            typeof playerRef.current.getCurrentTime === 'function' &&
+            typeof playerRef.current.getDuration === 'function' &&
+            typeof playerRef.current.seekTo === 'function';
+    };
+
+    // Update the progress interval effect
     useEffect(() => {
-        const delayDebounce = setTimeout(async () => {
-            if (searchQuery.trim()) {
-                try {
-                    const response = await axios.get(
-                        `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
-                            searchQuery + ' music'
-                        )}&type=video&videoCategoryId=10&maxResults=10&key=${YOUTUBE_API_KEY}`
-                    );
-
-                    const results = response.data.items.map(item => ({
-                        id: item.id.videoId,
-                        title: item.snippet.title,
-                        thumbnail: item.snippet.thumbnails.medium.url,
-                        channelTitle: item.snippet.channelTitle
-                    }));
-
-                    setSearchResults(results);
-                    socket.emit('search-update', { roomId, query: searchQuery, results });
-                    setError(null);
-                } catch (error) {
-                    console.error('Search error:', error);
-                    setError('Failed to search for tracks');
-                }
-            }
-        }, 500);
-
-        return () => clearTimeout(delayDebounce);
-    }, [searchQuery, roomId, socket]);
-
-    useEffect(() => {
-        if (isPlaying && playerRef.current) {
+        if (isPlaying && isPlayerFunctional()) {
             progressInterval.current = setInterval(() => {
-                const currentTime = playerRef.current.getCurrentTime() || 0;
-                const duration = playerRef.current.getDuration() || 0;
-                if (duration) {
-                    setProgress((currentTime / duration) * 100);
+                try {
+                    const currentTime = playerRef.current.getCurrentTime() || 0;
+                    const duration = playerRef.current.getDuration() || 0;
+                    if (duration) {
+                        setProgress((currentTime / duration) * 100);
+                    }
+                } catch (error) {
+                    console.error('Error updating progress:', error);
+                    clearInterval(progressInterval.current);
                 }
             }, 1000);
         }
@@ -308,27 +299,64 @@ const MusicRoom = () => {
             return;
         }
 
-        if (playerRef.current && playerRef.current.loadVideoById) {
-            console.log('Loading video with ID:', track.id);
-            playerRef.current.loadVideoById({
-                videoId: track.id,
-                startSeconds: startPosition
-            });
-            setCurrentTrack(track);
-            setIsPlaying(true);
-            setError(null);
-        } else {
-            console.error('Player not properly initialized');
-            setError('Failed to load video. Please try again.');
+        try {
+            if (playerRef.current && typeof playerRef.current.loadVideoById === 'function') {
+                console.log('Loading video with ID:', track.id);
+                playerRef.current.loadVideoById({
+                    videoId: track.id,
+                    startSeconds: startPosition
+                });
+                setCurrentTrack(track);
+                setIsPlaying(true);
+                setError(null);
+            } else {
+                throw new Error('Player not properly initialized');
+            }
+        } catch (error) {
+            console.error('Error in loadAndPlayVideo:', error);
+            setError('Failed to load video. Please try refreshing the page.');
         }
     };
 
     const handleSearchQueryChange = (e) => {
         const query = e.target.value;
         setSearchQuery(query);
-        if (roomId) {
-            socket.emit('search-query', { roomId, query });
+    };
+
+    const performSearch = async () => {
+        if (!searchQuery.trim()) return;
+
+        try {
+            setIsLoading(true);
+            const response = await axios.get(
+                `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
+                    searchQuery + ' music'
+                )}&type=video&videoCategoryId=10&maxResults=10&key=${YOUTUBE_API_KEY}`
+            );
+
+            const results = response.data.items.map(item => ({
+                id: item.id.videoId,
+                title: item.snippet.title,
+                thumbnail: item.snippet.thumbnails.medium.url,
+                channelTitle: item.snippet.channelTitle
+            }));
+
+            setSearchResults(results);
+            if (roomId) {
+                socket.emit('search-update', { roomId, query: searchQuery, results });
+            }
+            setError(null);
+        } catch (error) {
+            console.error('Search error:', error);
+            setError('Failed to search for tracks');
+        } finally {
+            setIsLoading(false);
         }
+    };
+
+    const handleSearchSubmit = (e) => {
+        e.preventDefault();
+        performSearch();
     };
 
     const handlePlay = (track) => {
@@ -347,35 +375,45 @@ const MusicRoom = () => {
     };
 
     const handlePlayPause = () => {
-        if (!playerRef.current || !currentTrack || !roomId) return;
+        if (!isPlayerFunctional() || !currentTrack || !roomId) return;
 
         console.log('Handle play/pause, current state:', isPlaying);
         const newIsPlaying = !isPlaying;
 
-        if (newIsPlaying) {
-            playerRef.current.playVideo();
-        } else {
-            playerRef.current.pauseVideo();
-        }
+        try {
+            if (newIsPlaying) {
+                playerRef.current.playVideo();
+            } else {
+                playerRef.current.pauseVideo();
+            }
 
-        socket.emit('music-state-update', {
-            roomId,
-            track: currentTrack,
-            isPlaying: newIsPlaying,
-            position: playerRef.current.getCurrentTime() || 0
-        });
+            socket.emit('music-state-update', {
+                roomId,
+                track: currentTrack,
+                isPlaying: newIsPlaying,
+                position: playerRef.current.getCurrentTime() || 0
+            });
+        } catch (error) {
+            console.error('Error in handlePlayPause:', error);
+            setError('Failed to control playback. Please try refreshing the page.');
+        }
     };
 
     const handleSeek = (e) => {
-        if (!playerRef.current || !currentTrack || !roomId) return;
+        if (!isPlayerFunctional() || !currentTrack || !roomId) return;
 
-        const rect = e.currentTarget.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const percentage = x / rect.width;
-        const position = percentage * playerRef.current.getDuration();
+        try {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const percentage = x / rect.width;
+            const position = percentage * playerRef.current.getDuration();
 
-        playerRef.current.seekTo(position, true);
-        socket.emit('music-seek', { roomId, position });
+            playerRef.current.seekTo(position, true);
+            socket.emit('music-seek', { roomId, position });
+        } catch (error) {
+            console.error('Error in handleSeek:', error);
+            setError('Failed to seek. Please try refreshing the page.');
+        }
     };
 
     const handleVolumeChange = (e) => {
@@ -472,16 +510,25 @@ const MusicRoom = () => {
 
                             {/* Search Section */}
                             <div className="w-full md:w-1/3 space-y-4">
-                                <div className="relative">
-                                    <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        value={searchQuery}
-                                        onChange={handleSearchQueryChange}
-                                        placeholder="Search for songs..."
-                                        className="w-full bg-black/30 text-white pl-12 pr-4 py-4 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500 border border-white/10"
-                                    />
-                                </div>
+                                <form onSubmit={handleSearchSubmit} className="relative flex gap-2">
+                                    <div className="relative flex-1">
+                                        <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            value={searchQuery}
+                                            onChange={handleSearchQueryChange}
+                                            placeholder="Search for songs..."
+                                            className="w-full bg-black/30 text-white pl-12 pr-4 py-4 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500 border border-white/10"
+                                        />
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        className="px-6 py-2 bg-purple-500 hover:bg-purple-600 rounded-full transition-colors flex items-center justify-center"
+                                        disabled={!searchQuery.trim()}
+                                    >
+                                        <FaSearch className="w-5 h-5" />
+                                    </button>
+                                </form>
 
                                 <div className="space-y-2 max-h-[600px] overflow-y-auto">
                                     <AnimatePresence>
