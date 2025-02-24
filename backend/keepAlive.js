@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 const PING_INTERVAL = 840000; // 14 minutes
-const SERVER_URL = 'https://screen-share-k727.onrender.com';
+const SERVER_URL = 'https://devshares.onrender.com';
 
 export const keepAlive = () => {
     setInterval(async () => {
